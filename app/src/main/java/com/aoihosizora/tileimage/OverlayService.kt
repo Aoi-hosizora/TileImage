@@ -18,8 +18,9 @@ class OverlayService : Service() {
     }
 
     private val overlayLayout by lazy {
+        val nullParent: ViewGroup? = null
         val inflater = LayoutInflater.from(application)
-        inflater.inflate(R.layout.overlay, null) as ConstraintLayout
+        inflater.inflate(R.layout.overlay, nullParent) as ConstraintLayout
     }
 
     private val overlayWindowType =
@@ -79,8 +80,11 @@ class OverlayService : Service() {
         overlayLayout.close_btn.setOnClickListener {
             val alertDialog = AlertDialog.Builder(applicationContext)
                 .setTitle("提醒")
-                .setMessage("是否关闭？")
-                .setPositiveButton("关闭") { _, _ -> stopSelf() }
+                .setMessage("是否关闭本弹窗？")
+                .setPositiveButton("关闭") { _, _ -> run {
+                    sendBroadcast()
+                    stopSelf()
+                } }
                 .setNegativeButton("取消", null)
                 .create()
             alertDialog.window?.setType(overlayWindowType)
@@ -91,8 +95,20 @@ class OverlayService : Service() {
     override fun onBind(p0: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        windowManager.removeView(overlayLayout.image)
-        windowManager.removeView(overlayLayout.close_btn)
+        sendBroadcast()
+
+        if (overlayLayout.image != null)
+            windowManager.removeView(overlayLayout)
         super.onDestroy()
+    }
+
+    /**
+     * 发送广播 取消激活 Tile
+     */
+    private fun sendBroadcast() {
+        val intent = Intent()
+        intent.action = MainService.ACTION_CLOSE_TILE
+        intent.`package` = packageName
+        sendBroadcast(intent)
     }
 }
