@@ -17,14 +17,15 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         if (!Settings.canDrawOverlays(this)) {
-            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+            val intent =
+                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
             startActivityForResult(intent, REQ_PERMISSION)
         } else
             startService()
     }
 
     private fun startService() {
-        val intent = Intent(this, MainService::class.java)
+        val intent = Intent(this, AppTileService::class.java)
         startService(intent)
     }
 
@@ -34,5 +35,29 @@ class MainActivity : AppCompatActivity() {
                 startService()
             }
         }
+    }
+
+    override fun onDestroy() {
+        // var isRun = false
+        // val manager = getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        // manager?.run {
+        //     val className =
+        //         OverlayService::class.java.toString().substringBefore("$").substringAfter("class ")
+        //     for (service in getRunningServices(Integer.MAX_VALUE)) {
+        //         if (service?.service?.className == className) {
+        //             isRun = true
+        //             break
+        //         }
+        //     }
+        // }
+
+        // if (!isRun) {
+        //     val intent = Intent(this@MainActivity, AppTileService::class.java)
+        //     intent.action = AppTileService.ACTION_INACTIVE_TILE
+        //     intent.`package` = packageName
+        //     sendBroadcast(intent)
+        // }
+
+        super.onDestroy()
     }
 }
