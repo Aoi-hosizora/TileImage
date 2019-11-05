@@ -2,37 +2,108 @@ package com.aoihosizora.tileimage
 
 import android.app.AlertDialog
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.drawable.BitmapDrawable
+import android.net.Uri
 import android.os.Build
 import android.os.IBinder
+import android.provider.MediaStore
 import android.support.constraint.ConstraintLayout
+import android.support.v4.content.ContextCompat
+import android.support.v4.graphics.ColorUtils
 import android.util.DisplayMetrics
 import android.view.*
+import android.widget.Toast
 import kotlinx.android.synthetic.main.overlay.view.*
 
 class OverlayService : Service() {
 
     companion object {
         private const val DEF_SIZE: Int = 300
+
+        const val BROADCAST_ACTION_IMAGE: String = "com.aoihosizora.tileImage.ACTION_IMAGE"
     }
 
+    private val receiver = object : BroadcastReceiver() {
+
+        override fun onReceive(context: Context?, intent: Intent?) {
+            intent?.action?.run {
+                // Toast.makeText(applicationContext, "OverlayService: $this", Toast.LENGTH_SHORT).show()
+                when (this) {
+                    BROADCAST_ACTION_IMAGE -> onReturnImageUri(intent)
+                    else -> { }
+                }
+            }
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+
+        val filter = IntentFilter()
+        filter.addAction(BROADCAST_ACTION_IMAGE)
+        filter.addCategory(Intent.CATEGORY_DEFAULT)
+        registerReceiver(receiver, filter)
+
+        showOverlay()
+    }
+
+    override fun onDestroy() {
+        val intent = Intent()
+        intent.action = AppTileService.BROADCAST_ACTION_INACTIVE_TILE
+        intent.`package` = packageName
+        sendBroadcast(intent)
+
+        if (overlayLayout.image != null)
+            windowManager.removeView(overlayLayout)
+
+        unregisterReceiver(receiver)
+        super.onDestroy()
+    }
+
+    override fun onBind(p0: Intent?): IBinder? = null
+
+    /**
+     * WINDOW_SERVICE
+     */
     private val windowManager by lazy {
         application.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     }
 
+    private val statusBarHeight by lazy {
+        val resourceId: Int = resources.getIdentifier("status_bar_height","dimen","android")
+        if (resourceId > 0)
+            resources.getDimensionPixelSize(resourceId)
+        else
+            0
+    }
+
+    /**
+     * 主布局: ConstraintLayout
+     */
     private val overlayLayout by lazy {
         val nullParent: ViewGroup? = null
         val inflater = LayoutInflater.from(application)
         inflater.inflate(R.layout.overlay, nullParent) as ConstraintLayout
     }
 
+    /**
+     * params.type
+     */
     private val overlayWindowType =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         else
             WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
+
+    private val params = WindowManager.LayoutParams()
 
     private var relationX = 0f
     private var relationY = 0f
@@ -40,12 +111,11 @@ class OverlayService : Service() {
     private var motoHeight = 0
     private var motoWidth = 0
 
-    override fun onCreate() {
-        super.onCreate()
+    /**
+     * 显示弹出窗口
+     */
+    private fun showOverlay() {
 
-        // https://www.jianshu.com/p/ac63c57d2555
-
-        val params = WindowManager.LayoutParams()
         params.run {
             type = overlayWindowType
             flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -58,20 +128,11 @@ class OverlayService : Service() {
 
         windowManager.addView(overlayLayout, params)
 
-        // overlayLayout.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
-        val resourceId: Int = resources.getIdentifier("status_bar_height","dimen","android")
-        val statusBarHeight =
-            if (resourceId > 0)
-                resources.getDimensionPixelSize(resourceId)
-            else -1
-
         val outMetrics = DisplayMetrics()
         windowManager.defaultDisplay.getMetrics(outMetrics)
         outMetrics.heightPixels -= statusBarHeight
 
         // Touch movable
-
-        // https://blog.csdn.net/vicwudi/article/details/82084965
         overlayLayout.image.setOnTouchListener { _, motionEvent -> run {
             when (motionEvent.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -91,20 +152,19 @@ class OverlayService : Service() {
             true
         } }
 
+        // close_btn
         overlayLayout.close_btn.setOnClickListener {
             val alertDialog = AlertDialog.Builder(applicationContext)
                 .setTitle("提醒")
                 .setMessage("是否关闭本弹窗？")
-                .setPositiveButton("关闭") { _, _ -> run {
-                    // sendBroadcast()
-                    stopSelf()
-                } }
+                .setPositiveButton("关闭") { _, _ -> stopSelf() }
                 .setNegativeButton("取消", null)
                 .create()
             alertDialog.window?.setType(overlayWindowType)
             alertDialog.show()
         }
 
+        // zoom_btn
         overlayLayout.zoom_btn.setOnTouchListener { _, motionEvent -> run {
             when (motionEvent.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -135,25 +195,66 @@ class OverlayService : Service() {
             }
             true
         } }
-    }
 
-    override fun onBind(p0: Intent?): IBinder? = null
-
-    override fun onDestroy() {
-        sendBroadcast()
-        if (overlayLayout.image != null)
-            windowManager.removeView(overlayLayout)
-
-        super.onDestroy()
+        // image_btn
+        overlayLayout.image_btn.setOnClickListener {
+            val intent = Intent(this, HelperActivity::class.java)
+            intent.action = HelperActivity.HELPER_TYPE_IMAGE
+            startActivity(intent)
+        }
     }
 
     /**
-     * 发送广播 取消激活 Tile
+     * 相册广播返回
      */
-    private fun sendBroadcast() {
-        val intent = Intent()
-        intent.action = AppTileService.ACTION_INACTIVE_TILE
-        intent.`package` = packageName
-        sendBroadcast(intent)
+    private fun onReturnImageUri(intent: Intent) {
+
+        fun isLightColor(color: Int): Boolean {
+            return ColorUtils.calculateLuminance(color) >= 0.5
+        }
+
+        intent.getParcelableExtra<Uri>(HelperActivity.EXTRA_IMAGE_URL)?.run {
+            // content://media/external/images/media/388342
+
+            try {
+                // Toast.makeText(applicationContext, this.toString(), Toast.LENGTH_SHORT).show()
+                val bitmap = MediaStore.Images.Media.getBitmap(contentResolver, this)
+
+                val outMetrics = DisplayMetrics()
+                windowManager.defaultDisplay.getMetrics(outMetrics)
+                outMetrics.heightPixels -= statusBarHeight
+
+                val heightRate = outMetrics.heightPixels.toDouble() / bitmap.height
+                val widthRate = outMetrics.widthPixels.toDouble() / bitmap.width
+
+                val rate: Double =
+                    if (heightRate >= 1 && widthRate >= 1)
+                        1.0
+                    else
+                        kotlin.math.min(heightRate, widthRate)
+
+                params.height = (bitmap.height * rate).toInt()
+                params.width = (bitmap.width * rate).toInt()
+                windowManager.updateViewLayout(overlayLayout, params)
+
+                overlayLayout.image.setImageBitmap(bitmap)
+
+                overlayLayout.zoom_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_zoom_white_24dp))
+                overlayLayout.close_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_close_white_24dp))
+                overlayLayout.image_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_photo_white_24dp))
+
+                if (isLightColor(bitmap.getPixel(bitmap.width - 1, bitmap.height - 1)))
+                    overlayLayout.zoom_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_zoom_dark_24dp))
+
+                if (isLightColor(bitmap.getPixel(0, 0)))
+                    overlayLayout.close_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_close_dark_24dp))
+
+                if (isLightColor(bitmap.getPixel(bitmap.width - 1, 0)))
+                    overlayLayout.image_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_photo_dark_24dp))
+
+            } catch (ex: Exception) {
+                Toast.makeText(applicationContext, ex.message, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 }

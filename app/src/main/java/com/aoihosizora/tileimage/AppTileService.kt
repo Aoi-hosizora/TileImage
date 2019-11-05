@@ -4,23 +4,25 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Uri
+import android.provider.Settings
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import android.widget.Toast
 
 class AppTileService : TileService() {
 
     companion object {
-        const val ACTION_INACTIVE_TILE = "ACTION_INACTIVE_TILE"
+        const val BROADCAST_ACTION_INACTIVE_TILE = "com.aoihosizora.tileImage.ACTION_INACTIVE_TILE"
     }
 
     private val receiver = object : BroadcastReceiver() {
 
         override fun onReceive(context: Context?, intent: Intent?) {
-            Toast.makeText(applicationContext, intent?.action, Toast.LENGTH_SHORT).show()
             intent?.action?.run {
-                if (this == ACTION_INACTIVE_TILE)
-                    inactiveTile()
+                // Toast.makeText(applicationContext, "AppTileService: $this", Toast.LENGTH_SHORT).show()
+                when (this) {
+                    BROADCAST_ACTION_INACTIVE_TILE -> inactiveTile()
+                }
             }
         }
     }
@@ -30,7 +32,8 @@ class AppTileService : TileService() {
         inactiveTile()
 
         val filter = IntentFilter()
-        filter.addAction(ACTION_INACTIVE_TILE)
+        filter.addAction(BROADCAST_ACTION_INACTIVE_TILE)
+        filter.addCategory(Intent.CATEGORY_DEFAULT)
         registerReceiver(receiver, filter)
     }
 
@@ -47,13 +50,18 @@ class AppTileService : TileService() {
     override fun onClick() {
         super.onClick()
 
-        if (qsTile?.state == Tile.STATE_INACTIVE) {
-            activeTile()
-            startService(Intent(this, OverlayService::class.java))
-        }
-        else {
+        if (qsTile?.state == Tile.STATE_ACTIVE) {
             inactiveTile()
             stopService(Intent(this, OverlayService::class.java))
+        }
+        else {
+            if (!Settings.canDrawOverlays(this)) {
+                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                startActivity(intent)
+            } else {
+                activeTile()
+                startService(Intent(this, OverlayService::class.java))
+            }
         }
     }
 
