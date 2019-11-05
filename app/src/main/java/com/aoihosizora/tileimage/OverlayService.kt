@@ -6,18 +6,14 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Color
 import android.graphics.PixelFormat
-import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.provider.MediaStore
-import android.support.constraint.ConstraintLayout
 import android.support.v4.content.ContextCompat
 import android.support.v4.graphics.ColorUtils
+import android.support.v7.widget.CardView
 import android.util.DisplayMetrics
 import android.view.*
 import android.widget.Toast
@@ -56,10 +52,7 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
-        val intent = Intent()
-        intent.action = AppTileService.BROADCAST_ACTION_INACTIVE_TILE
-        intent.`package` = packageName
-        sendBroadcast(intent)
+        sendBroadcast()
 
         if (overlayLayout.image != null)
             windowManager.removeView(overlayLayout)
@@ -70,12 +63,28 @@ class OverlayService : Service() {
 
     override fun onBind(p0: Intent?): IBinder? = null
 
+    private fun sendBroadcast() {
+        val intent = Intent()
+        intent.action = AppTileService.BROADCAST_ACTION_INACTIVE_TILE
+        intent.`package` = packageName
+        sendBroadcast(intent)
+    }
+
     /**
      * WINDOW_SERVICE
      */
     private val windowManager by lazy {
         application.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     }
+
+    /**
+     * params.type
+     */
+    private val overlayWindowType =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else
+            WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
 
     private val statusBarHeight by lazy {
         val resourceId: Int = resources.getIdentifier("status_bar_height","dimen","android")
@@ -91,18 +100,12 @@ class OverlayService : Service() {
     private val overlayLayout by lazy {
         val nullParent: ViewGroup? = null
         val inflater = LayoutInflater.from(application)
-        inflater.inflate(R.layout.overlay, nullParent) as ConstraintLayout
+        inflater.inflate(R.layout.overlay, nullParent) as CardView
     }
 
     /**
-     * params.type
+     * 主布局的 LayoutParams
      */
-    private val overlayWindowType =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        else
-            WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
-
     private val params = WindowManager.LayoutParams()
 
     private var relationX = 0f
@@ -157,7 +160,10 @@ class OverlayService : Service() {
             val alertDialog = AlertDialog.Builder(applicationContext)
                 .setTitle("提醒")
                 .setMessage("是否关闭本弹窗？")
-                .setPositiveButton("关闭") { _, _ -> stopSelf() }
+                .setPositiveButton("关闭") { _, _ -> run {
+                    sendBroadcast()
+                    stopSelf()
+                } }
                 .setNegativeButton("取消", null)
                 .create()
             alertDialog.window?.setType(overlayWindowType)
@@ -184,8 +190,8 @@ class OverlayService : Service() {
 
                     if (params.x + newWidth <= outMetrics.widthPixels // right border
                         && params.y + newHeight <= outMetrics.heightPixels // bottom border
-                        && newWidth >= overlayLayout.minWidth
-                        && newHeight >= overlayLayout.minHeight) {
+                        && newWidth >= overlayLayout.minimumWidth
+                        && newHeight >= overlayLayout.minimumHeight) {
 
                         params.width = newWidth.toInt()
                         params.height = newHeight.toInt()
@@ -217,7 +223,6 @@ class OverlayService : Service() {
             // content://media/external/images/media/388342
 
             try {
-                // Toast.makeText(applicationContext, this.toString(), Toast.LENGTH_SHORT).show()
                 val bitmap = MediaStore.Images.Media.getBitmap(contentResolver, this)
 
                 val outMetrics = DisplayMetrics()
@@ -242,7 +247,6 @@ class OverlayService : Service() {
                 overlayLayout.zoom_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_zoom_white_24dp))
                 overlayLayout.close_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_close_white_24dp))
                 overlayLayout.image_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_photo_white_24dp))
-
                 if (isLightColor(bitmap.getPixel(bitmap.width - 1, bitmap.height - 1)))
                     overlayLayout.zoom_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_zoom_dark_24dp))
 
