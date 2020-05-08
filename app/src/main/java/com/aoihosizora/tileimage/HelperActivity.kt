@@ -38,10 +38,10 @@ class HelperActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         if (ContextCompat.checkSelfPermission(this, permissions[0]) != PackageManager.PERMISSION_GRANTED &&
-            ContextCompat.checkSelfPermission(this, permissions[1]) != PackageManager.PERMISSION_GRANTED)
-
+            ContextCompat.checkSelfPermission(this, permissions[1]) != PackageManager.PERMISSION_GRANTED
+        ) {
             ActivityCompat.requestPermissions(this, permissions, REQUEST_PERMISSION_CODE)
-        else {
+        } else {
             when (intent?.action) {
                 HELPER_TYPE_IMAGE -> requestImage()
                 HELPER_TYPE_OTHER -> {

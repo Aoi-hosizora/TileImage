@@ -23,7 +23,6 @@ class OverlayService : Service() {
 
     companion object {
         private const val DEF_SIZE: Int = 300
-
         const val BROADCAST_ACTION_IMAGE: String = "com.aoihosizora.tileImage.ACTION_IMAGE"
     }
 
@@ -34,7 +33,8 @@ class OverlayService : Service() {
                 // Toast.makeText(applicationContext, "OverlayService: $this", Toast.LENGTH_SHORT).show()
                 when (this) {
                     BROADCAST_ACTION_IMAGE -> onReturnImageUri(intent)
-                    else -> { }
+                    else -> {
+                    }
                 }
             }
         }
@@ -80,18 +80,21 @@ class OverlayService : Service() {
     /**
      * params.type
      */
+    @Suppress("DEPRECATION")
     private val overlayWindowType =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        else
+        } else {
             WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
+        }
 
     private val statusBarHeight by lazy {
-        val resourceId: Int = resources.getIdentifier("status_bar_height","dimen","android")
-        if (resourceId > 0)
+        val resourceId: Int = resources.getIdentifier("status_bar_height", "dimen", "android")
+        if (resourceId > 0) {
             resources.getDimensionPixelSize(resourceId)
-        else
+        } else {
             0
+        }
     }
 
     /**
@@ -136,34 +139,38 @@ class OverlayService : Service() {
         outMetrics.heightPixels -= statusBarHeight
 
         // Touch movable
-        overlayLayout.image.setOnTouchListener { _, motionEvent -> run {
-            when (motionEvent.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    relationX = motionEvent.x
-                    relationY = motionEvent.y
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    params.x = (motionEvent.rawX - relationX).toInt()
-                    params.y = (motionEvent.rawY - relationY - statusBarHeight).toInt()
+        overlayLayout.image.setOnTouchListener { _, motionEvent ->
+            let {
+                when (motionEvent.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        relationX = motionEvent.x
+                        relationY = motionEvent.y
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        params.x = (motionEvent.rawX - relationX).toInt()
+                        params.y = (motionEvent.rawY - relationY - statusBarHeight).toInt()
 
-                    // in screen
-                    params.x = kotlin.math.min(kotlin.math.max(params.x, 0), outMetrics.widthPixels - params.width)
-                    params.y = kotlin.math.min(kotlin.math.max(params.y, 0), outMetrics.heightPixels - params.height)
-                    windowManager.updateViewLayout(overlayLayout, params)
+                        // in screen
+                        params.x = kotlin.math.min(kotlin.math.max(params.x, 0), outMetrics.widthPixels - params.width)
+                        params.y = kotlin.math.min(kotlin.math.max(params.y, 0), outMetrics.heightPixels - params.height)
+                        windowManager.updateViewLayout(overlayLayout, params)
+                    }
                 }
+                true
             }
-            true
-        } }
+        }
 
         // close_btn
         overlayLayout.close_btn.setOnClickListener {
             val alertDialog = AlertDialog.Builder(applicationContext)
                 .setTitle("提醒")
                 .setMessage("是否关闭本弹窗？")
-                .setPositiveButton("关闭") { _, _ -> run {
-                    sendBroadcast()
-                    stopSelf()
-                } }
+                .setPositiveButton("关闭") { _, _ ->
+                    run {
+                        sendBroadcast()
+                        stopSelf()
+                    }
+                }
                 .setNegativeButton("取消", null)
                 .create()
             alertDialog.window?.setType(overlayWindowType)
@@ -171,36 +178,39 @@ class OverlayService : Service() {
         }
 
         // zoom_btn
-        overlayLayout.zoom_btn.setOnTouchListener { _, motionEvent -> run {
-            when (motionEvent.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    // moto size
-                    motoWidth = params.width
-                    motoHeight = params.height
-                }
-                MotionEvent.ACTION_MOVE -> {
+        overlayLayout.zoom_btn.setOnTouchListener { _, motionEvent ->
+            run {
+                when (motionEvent.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        // moto size
+                        motoWidth = params.width
+                        motoHeight = params.height
+                    }
+                    MotionEvent.ACTION_MOVE -> {
 
-                    // newSize / motoSize
-                    val rate = kotlin.math.hypot(motionEvent.rawX - params.x,  motionEvent.rawY - params.y) /
+                        // newSize / motoSize
+                        val rate = kotlin.math.hypot(motionEvent.rawX - params.x, motionEvent.rawY - params.y) /
                             kotlin.math.hypot(motoWidth.toDouble(), motoHeight.toDouble())
 
-                    // new size
-                    val newWidth = motoWidth * rate
-                    val newHeight = motoHeight * rate
+                        // new size
+                        val newWidth = motoWidth * rate
+                        val newHeight = motoHeight * rate
 
-                    if (params.x + newWidth <= outMetrics.widthPixels // right border
-                        && params.y + newHeight <= outMetrics.heightPixels // bottom border
-                        && newWidth >= overlayLayout.minimumWidth
-                        && newHeight >= overlayLayout.minimumHeight) {
+                        if (params.x + newWidth <= outMetrics.widthPixels // right border
+                            && params.y + newHeight <= outMetrics.heightPixels // bottom border
+                            && newWidth >= overlayLayout.minimumWidth
+                            && newHeight >= overlayLayout.minimumHeight
+                        ) {
 
-                        params.width = newWidth.toInt()
-                        params.height = newHeight.toInt()
-                        windowManager.updateViewLayout(overlayLayout, params)
+                            params.width = newWidth.toInt()
+                            params.height = newHeight.toInt()
+                            windowManager.updateViewLayout(overlayLayout, params)
+                        }
                     }
                 }
+                true
             }
-            true
-        } }
+        }
 
         // image_btn
         overlayLayout.image_btn.setOnClickListener {

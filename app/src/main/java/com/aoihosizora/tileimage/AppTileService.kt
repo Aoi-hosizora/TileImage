@@ -53,8 +53,7 @@ class AppTileService : TileService() {
         if (qsTile?.state == Tile.STATE_ACTIVE) {
             inactiveTile()
             stopService(Intent(this, OverlayService::class.java))
-        }
-        else {
+        } else {
             if (!Settings.canDrawOverlays(this)) {
                 val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
                 startActivity(intent)
