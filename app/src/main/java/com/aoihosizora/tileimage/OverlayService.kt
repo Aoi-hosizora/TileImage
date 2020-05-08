@@ -10,7 +10,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.provider.MediaStore
-import android.support.v4.app.NotificationCompat
 import android.support.v4.content.ContextCompat
 import android.support.v4.graphics.ColorUtils
 import android.support.v7.widget.CardView
@@ -212,39 +211,9 @@ class OverlayService : Service() {
 
     private fun onChoose() {
         val intent = Intent(this, HelperActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         intent.action = HelperActivity.HELPER_TYPE_IMAGE
-
-        val tagNotification = "NOTIFICATION_MESSAGE"
-        val channelId = "1111"
-        val notificationId = 1111
-        val mNotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-        val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
-        val mBuilder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("")
-            .setContentText("")
-            .setColor(getColor(R.color.colorPrimaryDark))
-            .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
-            .setDefaults(Notification.DEFAULT_LIGHTS or Notification.DEFAULT_VIBRATE)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val mChannel = NotificationChannel(channelId, "Activity Opening Notification", NotificationManager.IMPORTANCE_HIGH)
-            mChannel.enableLights(true)
-            mChannel.enableVibration(true)
-            mChannel.description = "Activity opening notification"
-            mNotificationManager?.createNotificationChannel(mChannel)
-        }
-
-        mNotificationManager?.notify(tagNotification, notificationId, mBuilder.build())
-
-        // val intent = Intent(this, HelperActivity::class.java)
-        // intent.action = HelperActivity.HELPER_TYPE_IMAGE
-        // intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        // startActivity(intent)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
     }
 
     /**
