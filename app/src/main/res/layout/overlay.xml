@@ -6,7 +6,6 @@
     android:layout_height="300dp"
     android:layout_gravity="center"
     android:minWidth="75dp"
-
     android:minHeight="75dp"
     app:cardCornerRadius="4dp"
     app:cardElevation="4dp"

@@ -15,7 +15,6 @@ import rx_activity_result2.RxActivityResult
 class HelperActivity : Activity() {
 
     companion object {
-
         // Helper Type
         const val HELPER_TYPE_IMAGE = "HELPER_TYPE_IMAGE"
         const val HELPER_TYPE_OTHER = "HELPER_TYPE_OTHER"
@@ -31,27 +30,27 @@ class HelperActivity : Activity() {
 
     private val permissions = arrayOf(
         Manifest.permission.READ_EXTERNAL_STORAGE,
-        Manifest.permission.READ_EXTERNAL_STORAGE
+        Manifest.permission.WRITE_EXTERNAL_STORAGE
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        if (ContextCompat.checkSelfPermission(this, permissions[0]) != PackageManager.PERMISSION_GRANTED &&
+        if (
+            ContextCompat.checkSelfPermission(this, permissions[0]) != PackageManager.PERMISSION_GRANTED &&
             ContextCompat.checkSelfPermission(this, permissions[1]) != PackageManager.PERMISSION_GRANTED
         ) {
             ActivityCompat.requestPermissions(this, permissions, REQUEST_PERMISSION_CODE)
-        } else {
-            when (intent?.action) {
-                HELPER_TYPE_IMAGE -> requestImage()
-                HELPER_TYPE_OTHER -> {
-                    Toast.makeText(applicationContext, "HELPER_TYPE_OTHER", Toast.LENGTH_SHORT).show()
-                    finish()
-                }
-                else -> {
-                    Toast.makeText(applicationContext, "Not support", Toast.LENGTH_SHORT).show()
-                    finish()
-                }
+        }
+
+        when (intent?.action) {
+            HELPER_TYPE_IMAGE -> requestImage()
+            HELPER_TYPE_OTHER -> {
+                Toast.makeText(applicationContext, "HELPER_TYPE_OTHER", Toast.LENGTH_SHORT).show()
+                finish()
+            }
+            else -> {
+                Toast.makeText(applicationContext, "Not support", Toast.LENGTH_SHORT).show()
+                finish()
             }
         }
     }
@@ -59,10 +58,10 @@ class HelperActivity : Activity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_PERMISSION_CODE) {
-            if (grantResults[0] != PackageManager.PERMISSION_GRANTED)
+            if (grantResults[0] != PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(applicationContext, "授权失败", Toast.LENGTH_SHORT).show()
-            else
-                onCreate(null)
+                finish()
+            }
         }
     }
 

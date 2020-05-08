@@ -47,9 +47,11 @@ class AppTileService : TileService() {
         inactiveTile()
     }
 
+    /**
+     * 点击标签
+     */
     override fun onClick() {
         super.onClick()
-
         if (qsTile?.state == Tile.STATE_ACTIVE) {
             inactiveTile()
             stopService(Intent(this, OverlayService::class.java))
