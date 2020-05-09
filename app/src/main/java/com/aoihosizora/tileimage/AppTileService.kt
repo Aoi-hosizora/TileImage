@@ -28,8 +28,8 @@ class AppTileService : TileService() {
 
     override fun onCreate() {
         super.onCreate()
-        inactiveTile()
 
+        inactiveTile()
         val filter = IntentFilter()
         filter.addAction(BROADCAST_ACTION_INACTIVE_TILE)
         filter.addCategory(Intent.CATEGORY_DEFAULT)
@@ -44,6 +44,20 @@ class AppTileService : TileService() {
     override fun onTileAdded() {
         super.onTileAdded()
         inactiveTile()
+    }
+
+    /**
+     * 拉出通知界面
+     */
+    override fun onStartListening() {
+        super.onStartListening()
+        (application as? MyApplication)?.let {
+            if (it.state) {
+                activeTile()
+            } else {
+                inactiveTile()
+            }
+        }
     }
 
     /**
@@ -63,6 +77,9 @@ class AppTileService : TileService() {
                 activeTile()
                 startService(Intent(this, OverlayService::class.java))
             }
+
+            val intent = Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)
+            sendBroadcast(intent)
         }
     }
 

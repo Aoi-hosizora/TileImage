@@ -9,4 +9,6 @@ class MyApplication : Application() {
         super.onCreate()
         RxActivityResult.register(this)
     }
+
+    var state: Boolean = false
 }

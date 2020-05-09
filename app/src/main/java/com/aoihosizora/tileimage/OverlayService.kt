@@ -1,6 +1,7 @@
 package com.aoihosizora.tileimage
 
-import android.app.*
+import android.app.AlertDialog
+import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -15,21 +16,20 @@ import android.support.v4.graphics.ColorUtils
 import android.support.v7.widget.CardView
 import android.util.DisplayMetrics
 import android.view.*
-import android.widget.Toast
+import android.widget.ImageButton
 import kotlinx.android.synthetic.main.overlay.view.*
 
 class OverlayService : Service() {
 
     companion object {
         private const val DEF_SIZE: Int = 300
-        const val BROADCAST_ACTION_IMAGE: String = "com.aoihosizora.tileImage.ACTION_IMAGE"
+        const val BROADCAST_ACTION_IMAGE = "com.aoihosizora.tileImage.ACTION_IMAGE"
     }
 
     private val receiver = object : BroadcastReceiver() {
 
         override fun onReceive(context: Context?, intent: Intent?) {
             intent?.action?.run {
-                // Toast.makeText(applicationContext, "OverlayService: $this", Toast.LENGTH_SHORT).show()
                 when (this) {
                     BROADCAST_ACTION_IMAGE -> onReturnImageUri(intent)
                 }
@@ -45,9 +45,11 @@ class OverlayService : Service() {
         filter.addCategory(Intent.CATEGORY_DEFAULT)
         registerReceiver(receiver, filter)
         showOverlay()
+        (application as? MyApplication)?.let { it.state = true }
     }
 
     override fun onDestroy() {
+        (application as? MyApplication)?.let { it.state = false }
         sendBroadcast()
         if (overlayLayout.image != null) {
             windowManager.removeView(overlayLayout)
@@ -138,7 +140,6 @@ class OverlayService : Service() {
                     MotionEvent.ACTION_MOVE -> {
                         params.x = (motionEvent.rawX - relationX).toInt()
                         params.y = (motionEvent.rawY - relationY - statusBarHeight).toInt()
-
                         // in screen
                         params.x = kotlin.math.min(kotlin.math.max(params.x, 0), outMetrics.widthPixels - params.width)
                         params.y = kotlin.math.min(kotlin.math.max(params.y, 0), outMetrics.heightPixels - params.height)
@@ -183,14 +184,9 @@ class OverlayService : Service() {
         }
 
         // close_btn
-        overlayLayout.close_btn.setOnClickListener {
-            onExit()
-        }
-
+        overlayLayout.close_btn.setOnClickListener { onExit() }
         // image_btn
-        overlayLayout.image_btn.setOnClickListener {
-            onChoose()
-        }
+        overlayLayout.image_btn.setOnClickListener { onChoose() }
     }
 
     private fun onExit() {
@@ -212,7 +208,7 @@ class OverlayService : Service() {
     private fun onChoose() {
         val intent = Intent(this, HelperActivity::class.java)
         intent.action = HelperActivity.HELPER_TYPE_IMAGE
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) // <<<
         startActivity(intent)
     }
 
@@ -221,46 +217,37 @@ class OverlayService : Service() {
      */
     @Suppress("DEPRECATION")
     private fun onReturnImageUri(intent: Intent) {
+        val url = intent.getParcelableExtra<Uri>(HelperActivity.EXTRA_IMAGE_URL)
+        url?.let {
+            // content://media/external/images/media/388342
+            val bitmap = MediaStore.Images.Media.getBitmap(contentResolver, it)
 
+            val outMetrics = DisplayMetrics()
+            windowManager.defaultDisplay.getMetrics(outMetrics)
+            outMetrics.heightPixels -= statusBarHeight
+            val heightRate = outMetrics.heightPixels.toDouble() / bitmap.height
+            val widthRate = outMetrics.widthPixels.toDouble() / bitmap.width
+            val rate: Double = if (heightRate >= 1 && widthRate >= 1) 1.0 else kotlin.math.min(heightRate, widthRate)
+
+            params.height = (bitmap.height * rate).toInt()
+            params.width = (bitmap.width * rate).toInt()
+            windowManager.updateViewLayout(overlayLayout, params)
+
+            overlayLayout.image.setImageBitmap(bitmap)
+            setIcon(overlayLayout.zoom_btn, R.drawable.ic_zoom_white_24dp, R.drawable.ic_zoom_dark_24dp, bitmap.getPixel(bitmap.width - 1, bitmap.height - 1))
+            setIcon(overlayLayout.close_btn, R.drawable.ic_close_white_24dp, R.drawable.ic_close_dark_24dp, bitmap.getPixel(0, 0))
+            setIcon(overlayLayout.image_btn, R.drawable.ic_photo_white_24dp, R.drawable.ic_photo_dark_24dp, bitmap.getPixel(bitmap.width - 1, 0))
+        }
+    }
+
+    private fun setIcon(btn: ImageButton, lightId: Int, darkId: Int, pixel: Int) {
         fun isLightColor(color: Int): Boolean {
             return ColorUtils.calculateLuminance(color) >= 0.5
         }
 
-        intent.getParcelableExtra<Uri>(HelperActivity.EXTRA_IMAGE_URL)?.run {
-            // content://media/external/images/media/388342
-
-            try {
-                val bitmap = MediaStore.Images.Media.getBitmap(contentResolver, this)
-                val outMetrics = DisplayMetrics()
-                windowManager.defaultDisplay.getMetrics(outMetrics)
-                outMetrics.heightPixels -= statusBarHeight
-
-                val heightRate = outMetrics.heightPixels.toDouble() / bitmap.height
-                val widthRate = outMetrics.widthPixels.toDouble() / bitmap.width
-
-                val rate: Double = if (heightRate >= 1 && widthRate >= 1) 1.0 else kotlin.math.min(heightRate, widthRate)
-
-                params.height = (bitmap.height * rate).toInt()
-                params.width = (bitmap.width * rate).toInt()
-                windowManager.updateViewLayout(overlayLayout, params)
-
-                overlayLayout.image.setImageBitmap(bitmap)
-
-                overlayLayout.zoom_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_zoom_white_24dp))
-                overlayLayout.close_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_close_white_24dp))
-                overlayLayout.image_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_photo_white_24dp))
-                if (isLightColor(bitmap.getPixel(bitmap.width - 1, bitmap.height - 1))) {
-                    overlayLayout.zoom_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_zoom_dark_24dp))
-                }
-                if (isLightColor(bitmap.getPixel(0, 0))) {
-                    overlayLayout.close_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_close_dark_24dp))
-                }
-                if (isLightColor(bitmap.getPixel(bitmap.width - 1, 0))) {
-                    overlayLayout.image_btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, R.drawable.ic_photo_dark_24dp))
-                }
-            } catch (ex: Exception) {
-                Toast.makeText(applicationContext, ex.message, Toast.LENGTH_SHORT).show()
-            }
+        btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, lightId))
+        if (isLightColor(pixel)) {
+            btn.setImageDrawable(ContextCompat.getDrawable(applicationContext, darkId))
         }
     }
 }
